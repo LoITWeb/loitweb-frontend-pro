@@ -47,6 +47,13 @@ chmod +x init_project.sh
 6. **Структура:**
    - Внедрен `.wrapper` для прижатия футера (Sticky Footer) и контроля overflow.
 
+7. **Важное замечание по Background-изображениям (CSS):**
+   Для фоновых изображений в SCSS необходимо использовать абсолютные пути, 
+   начинающиеся от корня `dist` (корня проекта/сервера), 
+   чтобы избежать проблем с относительными путями (`../`) после компиляции CSS.
+   НЕПРАВИЛЬНО: `url(./../SubBanner/images/image.webp);`
+   ПРАВИЛЬНО: `url(/images/Home/SubBanner/image.webp);`
+
 ### ⚙️ Команды
 
 - `chmod +x init_project.sh` → Делает файл исполняемым.
@@ -116,6 +123,13 @@ Features:
 
 6. **Structure:**
    -A .wrapper layout is included to support a sticky footer and control overflow behavior.
+
+7. **Important Note on Background Images (CSS):**
+   For CSS background images in SCSS, you must use absolute paths 
+   starting from the `dist` root (the project/server root).
+   This is necessary to avoid issues with relative paths (`../`) after the CSS compilation.
+   INCORRECT: `url(./../SubBanner/images/image.webp);`
+   CORRECT: `url(/images/Home/SubBanner/image.webp);`
 
 ### ⚙️ Commands
 
