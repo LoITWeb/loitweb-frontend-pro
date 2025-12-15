@@ -89,7 +89,7 @@ echo "Creating Gulpfile (gulpfile.mjs)..."
 
 write gulpfile.mjs <<'GULP'
 import gulp from "gulp";
-import dartSass from "sass";
+import * as dartSass from "sass";
 import gulpSass from "gulp-sass";
 import fileInclude from "gulp-file-include";
 import imagemin from "gulp-imagemin";
