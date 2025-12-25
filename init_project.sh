@@ -15,7 +15,7 @@ set -euo pipefail
 
 # ---------------- Config ----------------
 PROJECT_NAME="$(basename "$PWD")"
-NODE_VERSION="24"
+NODE_VERSION="20"
 PROJECT_DIR="$(pwd)"
 
 echo
@@ -283,8 +283,21 @@ export async function cleanAll() {
 
 // ------------------ PATH FIXER ------------------
 function resolvePath(url) {
-  if (!url || url.startsWith("http") || url.startsWith("//") || url.startsWith("#") || url.startsWith("data:")) return url;
-  let clean = url.replace(/^(\.\.\/|\.\/)*src\//, "").replace(/^(\.\.\/|\.\/)+/, "");
+  if (!url) return url;
+
+  // ⛔ НЕ ТРОГАЕМ CSS / JS
+  if (url.endsWith('.js') || url.endsWith('.css')) return url;
+
+  if (
+    url.startsWith("http") ||
+    url.startsWith("//") ||
+    url.startsWith("#") ||
+    url.startsWith("data:")
+  ) return url;
+
+  let clean = url
+  	.replace(/^(\.\.\/|\.\/)*src\//, "")
+    .replace(/^(\.\.\/|\.\/)+/, "");
   
   if (clean.includes("components/")) {
     let parts = clean.split(/\/|\\/);
@@ -425,16 +438,14 @@ export function scriptsDev() {
 
 export function scriptsProd() {
   return gulp.src(paths.scripts.src, { allowEmpty: true })
-    .pipe(plumber())
     .pipe(gulpEsbuild({
-      outfile: 'main.min.js', // Output as .min.js
+      outfile: 'main.min.js',
       bundle: true,
       sourcemap: false,
-      minify: true, // Minify enabled
+      minify: true,
       platform: 'browser',
     }))
     .pipe(gulp.dest(paths.scripts.dest()))
-    .on("end", () => { try { browserSync.reload(); } catch (e) {} });
 }
 
 // ------------------ Styles ------------------
@@ -582,7 +593,7 @@ cat > src/index.html <<'HTML'
     </main>
     @@include("./components/common/Footer/Footer.html")
   </div>
-  <script src="./js/main.js"></script>
+	<script type="module" src="./js/main.js"></script>
 </body>
 </html>
 HTML
