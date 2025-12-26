@@ -97,7 +97,7 @@ import webp from "gulp-webp";
 import rename from "gulp-rename";
 import autoprefixer from "gulp-autoprefixer";
 import plumber from "gulp-plumber";
-import fs from "fs";
+import fs from "fs-extra";
 import path from "path";
 import browserSyncModule from "browser-sync";
 import { exec } from "child_process";
@@ -205,9 +205,9 @@ const weightMap = {
 
 function convertOtfToTtf() {
   return gulp.src(paths.fonts.srcOtf, { allowEmpty: true, encoding: false })
-    .pipe(plumber())
-    .pipe(fonter({ formats: ["ttf"] }))
-    .pipe(gulp.dest("src/fonts/"));
+  	.pipe(plumber())
+  	.pipe(fonter({ formats: ["ttf"] }))
+  	.pipe(gulp.dest("src/fonts/"));
 }
 
 function convertTtfToWebFonts() {
@@ -260,12 +260,12 @@ export function generateFontsScss(done) {
     if (sources.length === 0) continue;
 
     out += `@font-face {
-  font-family: "${fontFamily}";
-  src: ${sources.join(", ")};
-  font-weight: ${fontWeight};
-  font-style: ${fontStyle};
-  font-display: swap;
-}\n\n`;
+  		font-family: "${fontFamily}";
+  		src: ${sources.join(", ")};
+  		font-weight: ${fontWeight};
+  		font-style: ${fontStyle};
+  		font-display: swap;
+		}\n\n`;
   }
   writeIfChanged(paths.fonts.scssOut, out);
   done();
@@ -284,10 +284,9 @@ export async function cleanAll() {
 // ------------------ PATH FIXER ------------------
 function resolvePath(url) {
   if (!url) return url;
-
-  // ⛔ НЕ ТРОГАЕМ CSS / JS
-  if (url.endsWith('.js') || url.endsWith('.css')) return url;
-
+  if (url.endsWith(".js")) return url;
+  if (url.endsWith(".css")) return url;
+  if (url.endsWith(".html")) return url;
   if (
     url.startsWith("http") ||
     url.startsWith("//") ||
@@ -296,12 +295,16 @@ function resolvePath(url) {
   ) return url;
 
   let clean = url
-  	.replace(/^(\.\.\/|\.\/)*src\//, "")
+    .replace(/^(\.\.\/|\.\/)*src\//, "")
     .replace(/^(\.\.\/|\.\/)+/, "");
-  
+
   if (clean.includes("components/")) {
     let parts = clean.split(/\/|\\/);
-    let newParts = parts.filter(p => p !== "components" && p !== "common" && p !== "images");
+    let newParts = parts.filter(p =>
+      p !== "components" &&
+      p !== "common" &&
+      p !== "images"
+    );
     return "images/" + newParts.join("/");
   }
   if (clean.includes("public/images/")) {
@@ -333,11 +336,11 @@ const versionConfig = {
 
 export function htmlDev() {
   return gulp.src(paths.html.src)
-    .pipe(plumber())
-    .pipe(fileInclude({ prefix: "@@", basepath: "@file" }))
-    .pipe(fixPathsStream())
-    .pipe(gulp.dest(paths.html.dest()))
-    .on("end", () => { try { browserSync.reload(); } catch (e) {} });
+  	.pipe(plumber())
+  	.pipe(fileInclude({ prefix: "@@", basepath: "@file" }))
+  	.pipe(fixPathsStream())
+  	.pipe(gulp.dest(paths.html.dest()))
+  	.on("end", () => { try { browserSync.reload(); } catch (e) {} });
 }
 
 export function htmlProd() {
@@ -353,7 +356,6 @@ export function htmlProd() {
 }
 
 // ------------------ Images (Back to SRC + Dist) ------------------
-
 export function imagesPublicFavicons() {
   return gulp.src(paths.images.publicFaviconsSrc, { allowEmpty: true, encoding: false })
     .pipe(plumber())
@@ -375,12 +377,9 @@ export function imagesPublicImages() {
 export function imagesWebpPublicImages() {
   return gulp.src(paths.images.publicImagesWebpSrc, { allowEmpty: true, encoding: false })
     .pipe(plumber())
-    // 1. Check if webp exists in SRC
     .pipe(newer({ dest: "src/public/images", ext: '.webp' }))
     .pipe(webp())
-    // 2. Save back to SRC
     .pipe(gulp.dest("src/public/images"))
-    // 3. Save to DIST
     .pipe(gulp.dest(path.join(paths.images.dest(), "public/images/")))
     .on("end", () => { try { browserSync.reload(); } catch (e) {} });
 }
@@ -403,23 +402,32 @@ export function imagesComponents() {
 export function imagesWebpComponents() {
   return gulp.src(paths.images.componentsWebpSrc, { allowEmpty: true, base: "src/components", encoding: false })
     .pipe(plumber())
-    // 1. Check if webp exists in SRC (next to original)
     .pipe(newer({ dest: "src/components", ext: '.webp' }))
     .pipe(webp())
-    // 2. Save back to SRC (maintaining relative structure thanks to base: src/components)
     .pipe(gulp.dest("src/components"))
-    // 3. Rename (flatten paths) for DIST
     .pipe(rename(function (filePath) {
       let parts = filePath.dirname.split(/\/|\\/);
       let newParts = parts.filter(part => part !== "common" && part !== "images");
       filePath.dirname = newParts.join("/");
     }))
-    // 4. Save to DIST
     .pipe(gulp.dest(paths.images.dest()))
     .on("end", () => { try { browserSync.reload(); } catch (e) {} });
 }
 
-export const images = gulp.parallel(imagesPublicFavicons, imagesPublicImages, imagesWebpPublicImages, imagesComponents, imagesWebpComponents);
+export const images = gulp.series(
+  async () => {
+    await fs.ensureDir(paths.images.dest());
+    await fs.ensureDir(path.join(paths.images.dest(), "public/images"));
+    await fs.ensureDir(path.join(paths.images.dest(), "public/favicons"));
+  },
+  gulp.parallel(
+    imagesPublicFavicons,
+    imagesPublicImages,
+    imagesWebpPublicImages,
+    imagesComponents,
+    imagesWebpComponents
+  )
+);
 
 // ------------------ Scripts (Updated with Esbuild) ------------------
 export function scriptsDev() {
@@ -473,11 +481,36 @@ export function stylesProd() {
 }
 
 // ------------------ Build Tasks ------------------
-export const buildCoreDev = gulp.series(cleanOut, generateComponentsAuto, fonts, gulp.parallel(htmlDev, stylesDev, scriptsDev, images));
-export const buildCoreProd = gulp.series(cleanOut, generateComponentsAuto, fonts, gulp.parallel(htmlProd, stylesProd, scriptsProd, images));
+export const buildCoreDev = gulp.series(
+	cleanOut, 
+	generateComponentsAuto, 
+	fonts, 
+	gulp.parallel(
+		htmlDev, 
+		stylesDev, 
+		scriptsDev, 
+		images
+	)
+);
+
+export const buildCoreProd = gulp.series(
+	cleanOut, 
+	generateComponentsAuto, 
+	fonts, 
+	gulp.parallel(
+		htmlProd, 
+		stylesProd, 
+		scriptsProd, 
+		images
+	)
+);
 
 function setOut(target) {
-  return function setOutTask(done) { OUT = target; console.log("Output:", OUT); return done(); };
+  return function setOutTask(done) { 
+		OUT = target; 
+		console.log("Output:", OUT); 
+		return done(); 
+	};
 }
 
 export const build = gulp.series(setOut("build"), buildCoreProd);
